@@ -4,97 +4,94 @@ class ProductManager {
     constructor(path) {
         this.path = path;
     }
-    
+
     async addProduct(product) {
         const { title, description, price, thumbnail, code, stock } = product;
         if (!title || !description || !price || !thumbnail || !code || !stock) {
             throw new Error('Todos los campos son obligatorios.');
         }
-        const products = await getJSONFromFile(this.path);
+        const products = await this.getProducts();
         if (products.some((p) => p.code === code)) {
-            console.log(`Ya se encuetra agregado el code: ${code}`)
+            console.log(`Ya se encuentra agregado el código: ${code}`);
         } else {
-            const id = this.creoID()
+            const id = this.creoID();
             const newProduct = { id, title, description, price, thumbnail, code, stock };
             products.push(newProduct);
-            await saveJSONToFile(this.path, products);
+            await this.saveJSONToFile(products);
         }
     }
 
-    creoID = () => parseInt(Math.random() * 100000)
-    
-    getProducts = () =>  getJSONFromFile(this.path)
-    
-    deleteProductsFile = () =>  deleteToFile(this.path)
+    creoID = () => parseInt(Math.random() * 100000);
 
-    async deleteProduct(id){
-        const products = await getJSONFromFile(this.path);
-        let index = products.findIndex((p) => p.id === id)
-        if (index  > -1 ){
-            products.splice(index, 1)
-            await saveJSONToFile(this.path, products);
-            console.log("Se ha borrado correctamente el producto ")
-        } else{
-            console.log('No se ha podido borrar el producto');
-        }
-        
+    async getProducts() {
+        return await this.getJSONFromFile(this.path);
     }
 
-    async getProdcutById(id) { 
-        const products = await getJSONFromFile(this.path);
-        let productById = products.some(p => p.id === id)
-        if (!productById) {
-            console.log("Product not found")
+    async deleteProduct(id) {
+        const products = await this.getProducts();
+        const index = products.findIndex((p) => p.id === id);
+        if (index > -1) {
+            products.splice(index, 1);
+            await this.saveJSONToFile(products);
+            console.log("producto borrado");
         } else {
-            console.log("Product found", productById)
+            console.log('no se ha podido borrar el producto');
         }
     }
-    
+
+    async getProductById(id) {
+        const products = await this.getProducts();
+        const product = products.find((p) => p.id === id);
+        if (!product) {
+            console.log("producto no encontrado");
+        } else {
+            console.log("producto encontrado", product);
+        }
+    }
+
     async updateProduct(id, newTitle, newDescription, newPrice, newThumbnail, newCode, newStock) {
-        const getProducts = await getJSONFromFile(this.path);
-        let ProdId = getProducts.some(p => p.id === id)
-        if (!ProdId) {
-            console.log(`updateProduct: Product not foun, id: ${id}`)
-        } else { 
-                const products = { id:id, title: newTitle, description: newDescription, price: newPrice, thumbnail: newThumbnail, code: newCode, stock: newStock }
-                await saveJSONToFile(this.path, products);
-                console.log("Producto actualizado correctamente", products)                      
+        const products = await this.getProducts();
+        const productIndex = products.findIndex((p) => p.id === id);
+        if (productIndex === -1) {
+            console.log(`producto no encontrado, id: ${id}`);
+        } else {
+            products[productIndex] = {
+                id,
+                title: newTitle,
+                description: newDescription,
+                price: newPrice,
+                thumbnail: newThumbnail,
+                code: newCode,
+                stock: newStock
+            };
+            await this.saveJSONToFile(products);
+            console.log("producto actualizado correctamente", products[productIndex]);
+        }
+    }
+
+    async saveJSONToFile(data) {
+        const content = JSON.stringify(data, null, '\t');
+        try {
+            await fs.writeFile(this.path, content, 'utf-8');
+        } catch (error) {
+            throw new Error(`El archivo ${this.path} no pudo ser escrito.`);
+        }
+    }
+
+    async getJSONFromFile(path) {
+        try {
+            await fs.access(path);
+        } catch (error) {
+            return [];
+        }
+        const content = await fs.readFile(path, 'utf-8');
+        try {
+            return JSON.parse(content);
+        } catch (error) {
+            throw new Error(`El archivo ${path} no tiene un formato JSON válido.`);
         }
     }
 }
-
-const getJSONFromFile = async (path) => {
-    try {
-        await fs.access(path);
-    } catch (error) {
-        return [];
-    }
-    const content = await fs.readFile(path, 'utf-8');
-    try {
-        return JSON.parse(content);
-    } catch (error) {
-        throw new Error(`El archivo ${path} no tiene un formato JSON válido.`);
-    }
-}
-
-const saveJSONToFile = async (path, data) => {
-    const content = JSON.stringify(data, null, '\t'); 
-    try {
-        await fs.writeFile(path, content, 'utf-8');
-    } catch (error) {
-        throw new Error(`El archivo ${path} no pudo ser escrito.`);
-    }
-}  
-
-const deleteToFile = async (path)=> {
-    try {
-        console.log('Intentando borrar el archivo...')
-        await fs.unlink('./products.json') 
-        console.log('Finalizó el borrado del archivo.')
-    } catch (error) {
-        throw new Error(`El archivo ${path} no pudo ser borrado.`);
-    }      
-}   
 
 const desafio = async () => {
     try {
@@ -108,13 +105,13 @@ const desafio = async () => {
             stock: 25
         });
         const products = await productManager.getProducts();
-        console.log("getProdcuts", 'Acá los productos:', products);
-        productManager.getProdcutById()
-        productManager.deleteProduct() 
-        await productManager.updateProduct(74739, "Actualizado", "Actualizado", 300, "Actualizado", "Actualizado", 10)
-        //productManager.deleteProductsFile()
+        console.log("getProducts", 'Acá los productos:', products);
+        await productManager.getProductById(products[0].id); 
+        await productManager.updateProduct(products[0].id, "Actualizado", "Actualizado", 300, "Actualizado", "Actualizado", 10); 
+        await productManager.deleteProduct(products[0].id); 
     } catch (error) {
-        console.error(' Ha ocurrido un error: ', error.message);
+        console.error('Ha ocurrido un error: ', error.message);
     }
 };
-desafio()
+
+desafio();
